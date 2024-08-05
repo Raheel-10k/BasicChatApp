@@ -27,8 +27,10 @@ const setupSocket = (server) => {
     };
 
     const sendMessage = async (message) => {
-        const recipientSocketId = userSocketMap.get(message.recipient);
-        const senderSocketId = userSocketMap.get(message.sender);
+        const recipientSocketId = userSocketMap.get(
+            message.recipient.toString()
+        );
+        const senderSocketId = userSocketMap.get(message.sender.toString());
 
         const createdMessage = await Message.create(message);
 
