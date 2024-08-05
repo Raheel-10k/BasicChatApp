@@ -7,8 +7,8 @@ import "./index.css";
 import { SocketProvider } from "./contexts/SocketContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <SocketProvider>
-    <App />
-    <Toaster closeButton richColors />
-  </SocketProvider>
+    <SocketProvider>
+        <App />
+        <Toaster closeButton richColors />
+    </SocketProvider>
 );
