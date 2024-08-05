@@ -94,16 +94,21 @@ const setupSocket = (server) => {
 
         const scheduleTimestamp = scheduleDate.getTime();
         const jobId = `message_${Date.now()}`;
-        const scheduledMessage = await Message({
+        const scheduledMessage = await Message.create({
             ...message,
             isScheduled: true,
             scheduledTime: scheduleDate,
         });
 
-        await scheduleDate.save();
-
-        const scheduledJob = cron.schedule("* * * * *", async () => {
+        const scheduledJob = cron.schedule("* * * * * *", async () => {
             const currentTime = Date.now();
+            console.log(
+                scheduleTimestamp,
+                " ",
+                currentTime,
+                " ",
+                scheduleTimestamp <= currentTime
+            );
             if (scheduleTimestamp <= currentTime) {
                 console.log("Sending scheduled message");
 
@@ -115,6 +120,7 @@ const setupSocket = (server) => {
 
                 scheduledJob.stop();
                 scheduledMessages.delete(jobId);
+                console.log("Sent scheduled message");
             }
         });
 
