@@ -156,6 +156,11 @@ const MessageBar = () => {
         setScheduleDate(date);
         setIsDatePickerOpen(false);
     };
+    const handleKeyPress = (event) => {
+        if (event.key === "Enter") {
+            scheduleDate ? handleScheduleMessage() : handleSendMessage();
+        }
+    };
 
     return (
         <div className="h-[10vh] bg-[#1c1d25] flex justify-center items-center px-8 gap-6 mb-5">
@@ -166,6 +171,7 @@ const MessageBar = () => {
                     placeholder="Enter message"
                     value={message}
                     onChange={handleMessageChange}
+                    onKeyDown={handleKeyPress}
                 />
                 <button
                     className="text-neutral-300 focus:border-none focus:outline-none focus:text-white transition-all duration-300"
