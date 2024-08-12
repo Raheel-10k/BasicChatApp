@@ -1,8 +1,9 @@
 import Message from "../model/MessagesModel.js";
-import { mkdirSync, renameSync } from "fs";
-import pkg from "node-cron";
-const { schedule } = pkg; // Use schedule instead of scheduleJob
-import setupSocket from "../socket.js"; // Ensure this is the correct path
+import CryptoJS from "crypto-js";
+import dotenv from "dotenv";
+dotenv.config();
+
+const secretKey = process.env.MY_SECRET_KEY || "New keys";
 
 export const getMessages = async (req, res, next) => {
     try {
@@ -12,12 +13,33 @@ export const getMessages = async (req, res, next) => {
             return res.status(400).send("Both user IDs are required.");
         }
 
-        const messages = await Message.find({
+        let messages = await Message.find({
             $or: [
                 { sender: user1, recipient: user2 },
                 { sender: user2, recipient: user1 },
             ],
         }).sort({ timestamp: 1 });
+
+        // Decrypt the content of each message
+        messages = messages.map((message) => {
+            if (message.content) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(
+                        message.content,
+                        secretKey
+                    );
+                    const decryptedMessage = bytes.toString(CryptoJS.enc.Utf8);
+                    message.content = decryptedMessage;
+                } catch (err) {
+                    console.error(
+                        "Decryption failed for message:",
+                        message._id,
+                        err
+                    );
+                }
+            }
+            return message;
+        });
 
         return res.status(200).json({ messages });
     } catch (err) {
