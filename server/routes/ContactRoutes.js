@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
-  getAllContacts,
-  getContactsForList,
-  searchContacts,
+    getAllContacts,
+    getContactsForList,
+    searchContacts,
 } from "../controllers/ContacsControllers.js";
 import { verifyToken } from "../middlewares/AuthMiddleware.js";
 

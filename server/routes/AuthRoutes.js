@@ -1,12 +1,12 @@
 import { Router } from "express";
 import {
-  getUserInfo,
-  login,
-  signup,
-  logout,
-  updateProfile,
-  addProfileImage,
-  removeProfileImage,
+    getUserInfo,
+    login,
+    signup,
+    logout,
+    updateProfile,
+    addProfileImage,
+    removeProfileImage,
 } from "../controllers/AuthController.js";
 import { verifyToken } from "../middlewares/AuthMiddleware.js";
 import multer from "multer";
@@ -20,10 +20,10 @@ authRoutes.post("/logout", logout);
 authRoutes.get("/userinfo", verifyToken, getUserInfo);
 authRoutes.post("/update-profile", verifyToken, updateProfile);
 authRoutes.post(
-  "/add-profile-image",
-  verifyToken,
-  upload.single("profile-image"),
-  addProfileImage
+    "/add-profile-image",
+    verifyToken,
+    upload.single("profile-image"),
+    addProfileImage
 );
 authRoutes.delete("/remove-profile-image", verifyToken, removeProfileImage);
 
