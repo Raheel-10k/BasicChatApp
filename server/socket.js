@@ -4,6 +4,7 @@ import Channel from "./model/ChannelModel.js";
 import cron from "node-cron";
 import CryptoJS from "crypto-js";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const secretKey = process.env.MY_SECRET_KEY || "New keys";
@@ -32,16 +33,10 @@ const setupSocket = (server) => {
     };
 
     const sendMessage = async (message) => {
-        // Encrypt the message content
-        if (message.content) {
-            message.content = CryptoJS.AES.encrypt(
-                message.content,
-                secretKey
-            ).toString();
-        }
-
-        const recipientSocketId = userSocketMap.get(message.recipient);
-        const senderSocketId = userSocketMap.get(message.sender);
+        const recipientSocketId = userSocketMap.get(
+            message.recipient.toString()
+        );
+        const senderSocketId = userSocketMap.get(message.sender.toString());
 
         const createdMessage = await Message.create(message);
 
@@ -56,17 +51,21 @@ const setupSocket = (server) => {
         if (senderSocketId) {
             io.to(senderSocketId).emit("receiveMessage", messageData);
         }
-    };
 
-    const sendChannelMessage = async (message) => {
-        // Encrypt the message content
+        let encryptedMsg;
         if (message.content) {
-            message.content = CryptoJS.AES.encrypt(
+            encryptedMsg = CryptoJS.AES.encrypt(
                 message.content,
                 secretKey
             ).toString();
         }
 
+        await Message.findByIdAndUpdate(createdMessage.id, {
+            content: encryptedMsg,
+        });
+    };
+
+    const sendChannelMessage = async (message) => {
         const { channelId, sender, content, messageType, fileUrl } = message;
 
         const createdMessage = await Message.create({
@@ -89,6 +88,7 @@ const setupSocket = (server) => {
         const channel = await Channel.findById(channelId).populate("members");
 
         const finalData = { ...messageData._doc, channelId: channel._id };
+
         if (channel && channel.members) {
             channel.members.forEach((member) => {
                 const memberSocketId = userSocketMap.get(member._id.toString());
@@ -106,6 +106,14 @@ const setupSocket = (server) => {
                 io.to(adminSocketId).emit("receive-channel-message", finalData);
             }
         }
+
+        const encryptedContent = CryptoJS.AES.encrypt(
+            content,
+            secretKey
+        ).toString();
+        await Message.findByIdAndUpdate(createdMessage._id, {
+            content: encryptedContent,
+        });
     };
 
     const scheduleMessage = async (message, scheduleDate) => {
@@ -124,6 +132,8 @@ const setupSocket = (server) => {
         const scheduledJob = cron.schedule("* * * * * *", async () => {
             const currentTime = Date.now();
             if (scheduleTimestamp <= currentTime) {
+                console.log("Sending scheduled message");
+
                 const messageToSend = await Message.findById(
                     scheduledMessage._id
                 );
@@ -132,20 +142,49 @@ const setupSocket = (server) => {
 
                 scheduledJob.stop();
                 scheduledMessages.delete(jobId);
+                console.log("Sent scheduled message");
             }
         });
 
         scheduledMessages.set(jobId, scheduledJob);
+        console.log("Scheduled message job created");
     };
 
-    const convertDateToCron = (date) => {
-        const minutes = date.getUTCMinutes();
-        const hours = date.getUTCHours();
-        const dayOfMonth = date.getUTCDate();
-        const month = date.getUTCMonth() + 1;
-        const dayOfWeek = date.getUTCDay();
+    const scheduleChannelMessage = async (message, scheduleDate) => {
+        if (!(scheduleDate instanceof Date) || isNaN(scheduleDate.getTime())) {
+            throw new TypeError("scheduleDate must be a valid Date object!");
+        }
 
-        return `${minutes} ${hours} ${dayOfMonth} ${month} ${dayOfWeek}`;
+        const scheduleTimestamp = scheduleDate.getTime();
+        const jobId = `channel_message_${Date.now()}`;
+
+        const scheduledMessage = await Message.create({
+            ...message,
+            isScheduled: true,
+            scheduledTime: scheduleDate,
+            channelId: message.channelId,
+        });
+
+        const scheduledJob = cron.schedule("* * * * * *", async () => {
+            const currentTime = Date.now();
+            if (scheduleTimestamp <= currentTime) {
+                console.log("Sending scheduled channel message");
+
+                const messageToSend = await Message.findById(
+                    scheduledMessage._id
+                );
+                if (messageToSend.channelId) {
+                    await sendChannelMessage(messageToSend);
+                }
+
+                scheduledJob.stop();
+                scheduledMessages.delete(jobId);
+                console.log("Sent scheduled channel message");
+            }
+        });
+
+        scheduledMessages.set(jobId, scheduledJob);
+        console.log("Scheduled channel message job created");
     };
 
     const disconnect = (socket) => {
@@ -176,9 +215,17 @@ const setupSocket = (server) => {
 
         socket.on("send-channel-message", sendChannelMessage);
 
-        socket.on("scheduleMessage", (message, scheduleDate) =>
-            scheduleMessage(message, scheduleDate)
-        );
+        socket.on("scheduleMessage", async (data) => {
+            const { scheduleTime, ...message } = data;
+            const scheduleDate = new Date(scheduleTime);
+            await scheduleMessage(message, scheduleDate);
+        });
+
+        socket.on("schedule-channel-message", async (data) => {
+            const { scheduleTime, ...message } = data;
+            const scheduleDate = new Date(scheduleTime);
+            await scheduleChannelMessage(message, scheduleDate);
+        });
 
         socket.on("disconnect", () => disconnect(socket));
     });

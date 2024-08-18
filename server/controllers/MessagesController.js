@@ -1,9 +1,10 @@
 import Message from "../model/MessagesModel.js";
 import CryptoJS from "crypto-js";
+import { mkdirSync, renameSync } from "fs";
 import dotenv from "dotenv";
 dotenv.config();
 
-const secretKey = process.env.MY_SECRET_KEY || "New keys";
+const { MY_SECRET_KEY } = process.env;
 
 export const getMessages = async (req, res, next) => {
     try {
@@ -23,20 +24,11 @@ export const getMessages = async (req, res, next) => {
         // Decrypt the content of each message
         messages = messages.map((message) => {
             if (message.content) {
-                try {
-                    const bytes = CryptoJS.AES.decrypt(
-                        message.content,
-                        secretKey
-                    );
-                    const decryptedMessage = bytes.toString(CryptoJS.enc.Utf8);
-                    message.content = decryptedMessage;
-                } catch (err) {
-                    console.error(
-                        "Decryption failed for message:",
-                        message._id,
-                        err
-                    );
-                }
+                const bytes = CryptoJS.AES.decrypt(
+                    message.content,
+                    MY_SECRET_KEY
+                );
+                message.content = bytes.toString(CryptoJS.enc.Utf8);
             }
             return message;
         });
